@@ -1,0 +1,1 @@
+"""Pydantic Schema：API 请求/响应模型。"""
