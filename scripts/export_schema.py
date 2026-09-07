@@ -6,7 +6,11 @@
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+# 允许直接以 `python scripts/export_schema.py` 运行（把项目根目录加入 sys.path）
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import sqlalchemy
 from sqlalchemy.dialects import mysql as mysql_dialect  # noqa: F401  方言需显式导入

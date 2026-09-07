@@ -7,7 +7,12 @@
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from datetime import date, datetime, time
+
+# 允许直接以 `python scripts/seed.py` 运行（把项目根目录加入 sys.path）
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import delete, text
 
