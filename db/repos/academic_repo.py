@@ -80,6 +80,16 @@ def update_exam_status(session: Session, exam_id: int, status: str) -> None:
     session.execute(exams.update().where(exams.c.id == exam_id).values(status=status))
 
 
+def update_exam(session: Session, exam_id: int, **data: Any) -> None:
+    vals = _filter_fields(data, _INSERTABLE["exams"])
+    if vals:
+        session.execute(exams.update().where(exams.c.id == exam_id).values(**vals))
+
+
+def delete_exam(session: Session, exam_id: int) -> None:
+    session.execute(exams.delete().where(exams.c.id == exam_id))
+
+
 def upcoming_exams(session: Session, user_id: int, days: int = 30) -> List[Dict[str, Any]]:
     """【原生 SQL 示例】未来 days 天内、且未完成的考试。"""
     return fetch_all(
@@ -122,6 +132,10 @@ def update_assignment(session: Session, assignment_id: int, **data: Any) -> None
     vals = _filter_fields(data, _INSERTABLE["assignments"])
     if vals:
         session.execute(assignments.update().where(assignments.c.id == assignment_id).values(**vals))
+
+
+def delete_assignment(session: Session, assignment_id: int) -> None:
+    session.execute(assignments.delete().where(assignments.c.id == assignment_id))
 
 
 def pending_assignments_sorted(session: Session, user_id: int, within_days: int = 30) -> List[Dict[str, Any]]:

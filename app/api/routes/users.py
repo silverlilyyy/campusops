@@ -10,10 +10,22 @@ from app.schemas.common import ApiResponse
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+def _safe_user(user: dict) -> dict:
+    """剔除敏感字段（password_hash）后的用户信息。"""
+    return {k: v for k, v in user.items() if k != "password_hash"}
+
+
 @router.get("/me", response_model=ApiResponse)
 def me(user=Depends(get_default_user), session=Depends(get_db)) -> ApiResponse:
     pref = repos.user.get_preference(session, user["id"])
-    return ApiResponse.success({"user": user, "preference": pref})
+    return ApiResponse.success({"user": _safe_user(user), "preference": pref})
+
+
+@router.put("/me", response_model=ApiResponse)
+def update_me(payload: dict, session=Depends(get_db),
+              user=Depends(get_default_user)) -> ApiResponse:
+    row = repos.user.update_user(session, user["id"], **payload)
+    return ApiResponse.success({"user": _safe_user(row)}, message="个人信息已更新")
 
 
 @router.put("/me/preference", response_model=ApiResponse)

@@ -143,6 +143,14 @@ def get_budget(session: Session, budget_id: int) -> Optional[Dict[str, Any]]:
     return row_to_dict(row) if row else None
 
 
+def list_budgets(session: Session, user_id: int) -> List[Dict[str, Any]]:
+    """返回该用户全部预算（按周期开始时间倒序）。"""
+    return rows_to_dicts(session.execute(
+        select(budgets).where(budgets.c.user_id == user_id)
+        .order_by(budgets.c.period_start.desc())
+    ).all())
+
+
 def current_month_budget_with_spent(session: Session, user_id: int,
                                     month_start: date, month_end: date) -> List[Dict[str, Any]]:
     """【原生 SQL 示例】月度预算 vs 实际消费（LEFT JOIN 聚合）。"""
@@ -159,8 +167,12 @@ def current_month_budget_with_spent(session: Session, user_id: int,
             SELECT COALESCE(category, 'other') AS category, SUM(amount) AS spent
             FROM expenses
             WHERE user_id = :uid AND DATE(paid_at) BETWEEN :ms AND :me
-            GROUP BY category
-        ) s ON s.category = COALESCE(b.category, 'other')
+            GROUP BY COALESCE(category, 'other')
+            UNION ALL
+            SELECT NULL AS category, SUM(amount) AS spent
+            FROM expenses
+            WHERE user_id = :uid AND DATE(paid_at) BETWEEN :ms AND :me
+        ) s ON s.category <=> b.category
         WHERE b.user_id = :uid AND b.period_type = 'monthly'
           AND b.period_start = :ms
         ORDER BY b.id

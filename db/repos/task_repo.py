@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_, delete, insert, select
@@ -111,6 +111,81 @@ def replace_day_schedules(session: Session, user_id: int, day: date,
     )
     for item in items:
         create_schedule(session, user_id=user_id, **item)
+
+
+def sync_academic_schedules(session: Session, user_id: int,
+                            days: int = 28) -> Dict[str, int]:
+    """把课程/考试/作业同步为日程块（覆盖式：先删该来源的旧日程再重建）。
+
+    课程按 ``weekday`` 在时间窗内逐周展开；考试落在 ``exam_date`` 当天；
+    未完成作业落在 ``deadline`` 当天。返回各来源生成的块数。
+    """
+    from db.repos import academic as academic_repo
+
+    today = date.today()
+    end = today + timedelta(days=days)
+    counts: Dict[str, int] = {"course": 0, "exam": 0, "assignment": 0}
+
+    # 1) 清空旧的学术来源日程，保证幂等、无重复/残留
+    session.execute(
+        delete(schedules).where(
+            and_(schedules.c.user_id == user_id,
+                 schedules.c.ref_type.in_(["course", "exam", "assignment"]))
+        )
+    )
+
+    # 2) 课程：按 weekday 展开为每周的时间块
+    for c in academic_repo.list_courses(session, user_id):
+        weekday = c.get("weekday")
+        start_time = c.get("start_time")
+        end_time = c.get("end_time")
+        if not weekday or not start_time or not end_time:
+            continue
+        d = today
+        while d <= end:
+            if d.isoweekday() == int(weekday):
+                create_schedule(
+                    session, user_id=user_id, day=d,
+                    start_time=start_time, end_time=end_time,
+                    schedule_type="course", ref_type="course", ref_id=c["id"],
+                    title=c.get("name"), location=c.get("location"),
+                )
+                counts["course"] += 1
+            d += timedelta(days=1)
+
+    # 3) 考试：exam_date 当天一个时间块
+    for e in academic_repo.list_exams(session, user_id):
+        exam_date = e.get("exam_date")
+        if not exam_date or exam_date < today or exam_date > end:
+            continue
+        create_schedule(
+            session, user_id=user_id, day=exam_date,
+            start_time=e.get("start_time") or time(9, 0),
+            end_time=e.get("end_time") or time(11, 0),
+            schedule_type="exam", ref_type="exam", ref_id=e["id"],
+            title=e.get("name"), location=e.get("location"),
+        )
+        counts["exam"] += 1
+
+    # 4) 作业：deadline 当天一个时间块（已完成的不再排）
+    for a in academic_repo.list_assignments(session, user_id):
+        if a.get("status") in ("completed",):
+            continue
+        deadline = a.get("deadline")
+        if not deadline:
+            continue
+        d = deadline.date() if isinstance(deadline, datetime) else deadline
+        if d < today or d > end:
+            continue
+        create_schedule(
+            session, user_id=user_id, day=d,
+            start_time=time(20, 0), end_time=time(21, 0),
+            schedule_type="task", ref_type="assignment", ref_id=a["id"],
+            title=a.get("title"),
+        )
+        counts["assignment"] += 1
+
+    return counts
 
 
 def detect_conflicts(session: Session, user_id: int, day: date) -> List[Dict[str, Any]]:

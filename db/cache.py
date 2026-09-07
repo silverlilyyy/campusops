@@ -103,8 +103,8 @@ class AgentStatusStore:
 
     def set(self, agent_name: str, status: str) -> None:
         _run("none", lambda: _pipe(
-            get_redis().hset(self._key, agent_name, status),
-            get_redis().expire(self._key, 3600),
+            lambda: get_redis().hset(self._key, agent_name, status),
+            lambda: get_redis().expire(self._key, 3600),
         ))
 
     def get(self, agent_name: str) -> Optional[str]:
@@ -127,8 +127,8 @@ class ContextStore:
     def push(self, role: str, content: str, **extra: Any) -> None:
         item = {"role": role, "content": content, "ts": time.time(), **extra}
         _run("none", lambda: _pipe(
-            get_redis().rpush(self._key, _json(item)),
-            get_redis().expire(self._key, self._ttl),
+            lambda: get_redis().rpush(self._key, _json(item)),
+            lambda: get_redis().expire(self._key, self._ttl),
         ))
 
     def recent(self, limit: int = 20) -> List[Dict[str, Any]]:
