@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { health } from '../api/client'
 import type { HealthInfo } from '../api/types'
+import { authState, loadCurrentUser } from '../auth'
 
 const route = useRoute()
 const info = ref<HealthInfo | null>(null)
@@ -15,6 +16,7 @@ const navs = [
   { to: '/finance', label: '财务', icon: '💰' },
   { to: '/schedule', label: '日程', icon: '🗓️' },
   { to: '/plans', label: '方案回放', icon: '🧭' },
+  { to: '/profile', label: '个人中心', icon: '👤' },
 ]
 
 onMounted(async () => {
@@ -23,6 +25,7 @@ onMounted(async () => {
   } catch (e) {
     healthError.value = e instanceof Error ? e.message : '无法连接后端'
   }
+  await loadCurrentUser()
 })
 
 const online = () => !!info.value && info.value.mysql && info.value.redis
@@ -51,6 +54,11 @@ const online = () => !!info.value && info.value.mysql && info.value.redis
           <span>{{ n.label }}</span>
         </router-link>
       </nav>
+
+      <div class="user-chip" v-if="authState.user">
+        <span class="user-avatar">👤</span>
+        <span class="user-name">{{ authState.user.nickname || authState.user.username }}</span>
+      </div>
 
       <div class="sidebar-foot">
         <div class="status-dot" :class="online() ? 'ok' : 'down'" />
@@ -144,6 +152,28 @@ const online = () => !!info.value && info.value.mysql && info.value.redis
 
 .nav-icon {
   font-size: 16px;
+}
+
+.user-chip {
+  margin: 0 16px 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #e5e7eb;
+}
+
+.user-avatar {
+  font-size: 15px;
+}
+
+.user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-foot {

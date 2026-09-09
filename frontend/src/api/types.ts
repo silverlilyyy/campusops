@@ -177,6 +177,12 @@ export interface UserInfo {
   avatar_url?: string | null
 }
 
+export interface AuthResult {
+  token: string
+  user: UserInfo
+  preference: Preference | null
+}
+
 export interface Preference {
   user_id: number
   study_start?: string | null

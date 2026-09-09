@@ -7,6 +7,15 @@ const http = axios.create({
   timeout: 120000,
 })
 
+// 简单登录：把本地保存的令牌附加到每个请求头上
+http.interceptors.request.use((config) => {
+  const token = localStorage.getItem('campusops_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 http.interceptors.response.use(
   (resp) => resp,
   (err) => {

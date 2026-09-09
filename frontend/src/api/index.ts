@@ -4,6 +4,7 @@ import type {
   AgentAction,
   AgentSession,
   Assignment,
+  AuthResult,
   Budget,
   ChatResult,
   Conversation,
@@ -28,6 +29,17 @@ export interface ChatPayload {
 }
 
 export const api = {
+  // 认证
+  login(payload: { username: string; password: string }) {
+    return request<AuthResult>({ method: 'POST', url: '/auth/login', data: payload })
+  },
+  register(payload: { username: string; password: string; nickname?: string; email?: string }) {
+    return request<AuthResult>({ method: 'POST', url: '/auth/register', data: payload })
+  },
+  authMe() {
+    return request<AuthResult>({ method: 'GET', url: '/auth/me' })
+  },
+
   // 对话
   chat(payload: ChatPayload) {
     return request<ChatResult>({ method: 'POST', url: '/chat', data: payload })

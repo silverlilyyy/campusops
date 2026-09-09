@@ -14,6 +14,7 @@ const router = createRouter({
         { path: 'finance', name: 'finance', component: () => import('../views/FinanceView.vue'), meta: { title: '财务' } },
         { path: 'schedule', name: 'schedule', component: () => import('../views/ScheduleView.vue'), meta: { title: '日程' } },
         { path: 'plans', name: 'plans', component: () => import('../views/PlansView.vue'), meta: { title: '方案回放' } },
+        { path: 'profile', name: 'profile', component: () => import('../views/ProfileView.vue'), meta: { title: '个人中心' } },
       ],
     },
   ],
