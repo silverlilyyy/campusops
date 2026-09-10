@@ -149,8 +149,7 @@ export interface AgentSession {
   conversation_id?: number | null
   input_text?: string | null
   status?: string | null
-  current_agent?: string | null
-  result?: string | null
+  error?: string | null
   plan_id?: number | null
   replan_of_id?: number | null
   started_at?: string | null

@@ -57,7 +57,7 @@ budgets = Table(
     Column("period_type", String(16), nullable=False, comment="daily/weekly/monthly"),
     Column("period_start", Date, nullable=False, comment="周期开始"),
     Column("period_end", Date, nullable=False, comment="周期结束"),
-    Column("category", String(32), comment="类别预算，空=总预算"),
+    Column("category", String(32), nullable=False, server_default="", comment="类别预算，''=总预算"),
     Column("amount", DECIMAL(10, 2), nullable=False, comment="预算金额"),
     *ts_columns(),
     UniqueConstraint("user_id", "period_type", "period_start", "category", name="uk_budget"),

@@ -118,10 +118,11 @@ def upsert_budget(session: Session, *, user_id: int, period_type: str, amount,
                   period_start: date, period_end: date,
                   category: str | None = None) -> Dict[str, Any]:
     """预算按 (user, period_type, period_start, category) 唯一，存在则覆盖。"""
+    category = category or ""  # 总预算用空串表示，保证唯一约束生效
     existing = scalar(
         session,
         "SELECT id FROM budgets WHERE user_id=:uid AND period_type=:pt "
-        "AND period_start=:ps AND category <=> :cat",
+        "AND period_start=:ps AND category=:cat",
         uid=user_id, pt=period_type, ps=period_start, cat=category,
     )
     if existing:
@@ -169,10 +170,10 @@ def current_month_budget_with_spent(session: Session, user_id: int,
             WHERE user_id = :uid AND DATE(paid_at) BETWEEN :ms AND :me
             GROUP BY COALESCE(category, 'other')
             UNION ALL
-            SELECT NULL AS category, SUM(amount) AS spent
+            SELECT '' AS category, SUM(amount) AS spent
             FROM expenses
             WHERE user_id = :uid AND DATE(paid_at) BETWEEN :ms AND :me
-        ) s ON s.category <=> b.category
+        ) s ON s.category = b.category
         WHERE b.user_id = :uid AND b.period_type = 'monthly'
           AND b.period_start = :ms
         ORDER BY b.id

@@ -4,7 +4,7 @@
 ``metadata``，便于 ``create_all`` 一键建表、以及后续导出 DDL。
 
 约定：
-- 主键统一为 ``id`` BIGINT 自增；
+- 主键统一为 ``id`` BIGINT 自增（1:1 表例外：``user_preferences`` 以 ``user_id`` 为主键）；
 - 记录创建/更新时间由 MySQL ``CURRENT_TIMESTAMP`` 生成（默认列默认值在 repos 层维护）；
 - 业务枚举统一使用 VARCHAR 长度 16~32 的字符串（语义清晰、便于扩展）；
 - 全库 utf8mb4 字符集（docker-compose 已配置）。

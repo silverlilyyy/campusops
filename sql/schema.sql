@@ -61,7 +61,7 @@ CREATE TABLE budgets (
 	period_type VARCHAR(16) NOT NULL COMMENT 'daily/weekly/monthly', 
 	period_start DATE NOT NULL COMMENT '周期开始', 
 	period_end DATE NOT NULL COMMENT '周期结束', 
-	category VARCHAR(32) COMMENT '类别预算，空=总预算', 
+	category VARCHAR(32) NOT NULL COMMENT '类别预算，''''=总预算' DEFAULT '', 
 	amount DECIMAL(10, 2) NOT NULL COMMENT '预算金额', 
 	created_at DATETIME NOT NULL COMMENT '创建时间' DEFAULT now(), 
 	updated_at DATETIME NOT NULL COMMENT '更新时间' DEFAULT now(), 
@@ -126,8 +126,7 @@ CREATE TABLE expenses (
 
 
 CREATE TABLE user_preferences (
-	id BIGINT NOT NULL AUTO_INCREMENT, 
-	user_id BIGINT NOT NULL COMMENT '用户ID', 
+	user_id BIGINT NOT NULL COMMENT '用户ID(主键)', 
 	study_start TIME COMMENT '习惯学习开始时间', 
 	study_end TIME COMMENT '习惯学习结束时间', 
 	weekly_study_hours DECIMAL(4, 1) COMMENT '每周计划学习时长(小时)', 
@@ -135,8 +134,7 @@ CREATE TABLE user_preferences (
 	notification_enabled BOOL COMMENT '是否开启提醒', 
 	created_at DATETIME NOT NULL COMMENT '创建时间' DEFAULT now(), 
 	updated_at DATETIME NOT NULL COMMENT '更新时间' DEFAULT now(), 
-	PRIMARY KEY (id), 
-	CONSTRAINT uk_pref_user UNIQUE (user_id), 
+	PRIMARY KEY (user_id), 
 	FOREIGN KEY(user_id) REFERENCES users (id)
 )COMMENT='用户偏好'
 
@@ -151,13 +149,11 @@ CREATE TABLE action_plans (
 	goal TEXT COMMENT '总体目标(需求理解)', 
 	summary TEXT COMMENT '方案说明', 
 	status VARCHAR(16) COMMENT 'draft/active/completed/superseded', 
-	replan_of_id BIGINT COMMENT '由哪个旧方案重规划而来', 
 	created_at DATETIME NOT NULL COMMENT '创建时间' DEFAULT now(), 
 	updated_at DATETIME NOT NULL COMMENT '更新时间' DEFAULT now(), 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(user_id) REFERENCES users (id), 
-	FOREIGN KEY(conversation_id) REFERENCES conversations (id), 
-	FOREIGN KEY(replan_of_id) REFERENCES action_plans (id)
+	FOREIGN KEY(conversation_id) REFERENCES conversations (id)
 )COMMENT='行动方案'
 
 
@@ -238,7 +234,7 @@ CREATE TABLE tasks (
 	description TEXT COMMENT '任务说明', 
 	task_type VARCHAR(16) COMMENT 'academic/schedule/finance/general', 
 	source_type VARCHAR(16) COMMENT '来源：exam/assignment/activity/manual/agent', 
-	source_id BIGINT COMMENT '来源对象ID(暂存其业务表ID)', 
+	source_id BIGINT COMMENT '来源对象ID(软引用，配合source_type指向业务表)', 
 	priority SMALLINT COMMENT '优先级1-5', 
 	status VARCHAR(16) COMMENT 'pending/planned/in_progress/done/postponed/cancelled/overdue', 
 	deadline DATETIME COMMENT '截止时间', 
@@ -250,7 +246,6 @@ CREATE TABLE tasks (
 	updated_at DATETIME NOT NULL COMMENT '更新时间' DEFAULT now(), 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(user_id) REFERENCES users (id), 
-	FOREIGN KEY(source_id) REFERENCES tasks (id), 
 	FOREIGN KEY(conversation_id) REFERENCES conversations (id)
 )COMMENT='综合任务'
 
@@ -283,8 +278,7 @@ CREATE TABLE agent_sessions (
 	conversation_id BIGINT COMMENT '关联对话', 
 	input_text TEXT NOT NULL COMMENT '原始用户需求', 
 	status VARCHAR(16) COMMENT 'queued/running/completed/failed', 
-	current_agent VARCHAR(32) COMMENT '当前执行中的 Agent', 
-	result TEXT COMMENT '最终汇总结果/回答文本', 
+	error TEXT COMMENT '失败原因(仅失败时写入)', 
 	plan_id BIGINT COMMENT '本轮生成的行动方案', 
 	replan_of_id BIGINT COMMENT '由哪次执行触发的重规划', 
 	started_at DATETIME COMMENT '开始时间', 

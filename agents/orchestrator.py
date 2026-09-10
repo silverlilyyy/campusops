@@ -5,7 +5,7 @@
 2. Manager: 理解需求 + 拆解子任务（可并行）；
 3. 执行各子 Agent（academic / schedule / finance），记录 agent_actions；
 4. Schedule 产物 items -> 落库 action_plans + action_plan_items（新方案覆盖旧方案）；
-5. 汇总结果 -> 写回 agent_sessions(result/plan_id) 与对话消息。
+5. 汇总结果 -> 写回 agent_sessions(status/plan_id，失败写 error) 与对话消息。
 
 约定：
 - 全程使用共享 Session 的事务（get_session 上下文内完成提交）；
@@ -110,8 +110,7 @@ def run_planning(*, user_id: int, input_text: str,
                                           status="completed")
 
             # 记录收尾
-            repos.agent_run.complete_session(session, run_id, result=final_text,
-                                             plan_id=plan_id)
+            repos.agent_run.complete_session(session, run_id, plan_id=plan_id)
             if conversation_id:
                 repos.conversation.add_message(
                     session, conversation_id=conversation_id, role="assistant",

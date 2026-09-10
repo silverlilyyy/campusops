@@ -38,26 +38,26 @@ def create_session(session: Session, *, user_id: int, conversation_id: int | Non
                    input_text: str, replan_of_id: int | None = None) -> Dict[str, Any]:
     return insert_and_fetch(session, agent_sessions, {
         "user_id": user_id, "conversation_id": conversation_id, "input_text": input_text,
-        "status": "running", "current_agent": None, "replan_of_id": replan_of_id,
+        "status": "running", "replan_of_id": replan_of_id,
         "started_at": datetime.now(), "created_at": datetime.now(),
     })
 
 
 def update_session(session: Session, session_id: int, **fields: Any) -> None:
-    allowed = {"status", "current_agent", "result", "plan_id", "ended_at", "replan_of_id"}
+    allowed = {"status", "error", "plan_id", "ended_at", "replan_of_id"}
     vals = {k: v for k, v in fields.items() if k in allowed and v is not None}
     if vals:
         session.execute(agent_sessions.update().where(agent_sessions.c.id == session_id).values(**vals))
 
 
-def complete_session(session: Session, session_id: int, *, result: str,
+def complete_session(session: Session, session_id: int, *,
                      plan_id: int | None = None) -> None:
-    update_session(session, session_id, status="completed", result=result,
+    update_session(session, session_id, status="completed",
                    plan_id=plan_id, ended_at=datetime.now())
 
 
 def fail_session(session: Session, session_id: int, *, error: str) -> None:
-    update_session(session, session_id, status="failed", result=error, ended_at=datetime.now())
+    update_session(session, session_id, status="failed", error=error, ended_at=datetime.now())
 
 
 def get_session(session: Session, session_id: int) -> Optional[Dict[str, Any]]:

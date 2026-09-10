@@ -220,16 +220,15 @@ def get_active_plan(session: Session, user_id: int) -> Optional[Dict[str, Any]]:
 def create_plan(session: Session, *, user_id: int, items: List[Dict[str, Any]],
                 goal: str | None = None, summary: str | None = None,
                 title: str | None = None, conversation_id: int | None = None,
-                replan_of_id: int | None = None,
                 supersede_old: bool = True) -> Dict[str, Any]:
     """创建行动方案及明细。
 
     这是一个**事务性**操作：旧方案标记 superseded -> 新方案落库 -> 逐条写入明细。
     （调用方保证在整个 db.engine.get_session() 事务内执行）
     """
-    if supersede_old and not replan_of_id:
+    if supersede_old:
         old = get_active_plan(session, user_id)
-        if old and old["id"] != replan_of_id:
+        if old:
             session.execute(
                 action_plans.update()
                 .where(action_plans.c.id == old["id"])
@@ -239,7 +238,7 @@ def create_plan(session: Session, *, user_id: int, items: List[Dict[str, Any]],
     plan = insert_and_fetch(session, action_plans, {
         "user_id": user_id, "conversation_id": conversation_id, "title": title,
         "goal": goal, "summary": summary,
-        "status": "active", "replan_of_id": replan_of_id,
+        "status": "active",
     })
 
     for i, item in enumerate(items):

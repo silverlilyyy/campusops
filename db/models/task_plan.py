@@ -3,6 +3,7 @@
 这部分是 Agent 规划的"产物"，是本项目最核心的业务数据。
 """
 from sqlalchemy import (
+    BigInteger,
     Column,
     Date,
     DateTime,
@@ -30,7 +31,7 @@ tasks = Table(
     Column("description", Text, comment="任务说明"),
     Column("task_type", String(16), default="general", comment="academic/schedule/finance/general"),
     Column("source_type", String(16), comment="来源：exam/assignment/activity/manual/agent"),
-    Column("source_id", ForeignKey("tasks.id"), comment="来源对象ID(暂存其业务表ID)"),
+    Column("source_id", BigInteger, comment="来源对象ID(软引用，配合source_type指向业务表)"),
     Column("priority", SmallInteger, default=3, comment="优先级1-5"),
     Column("status", String(16), default="pending",
            comment="pending/planned/in_progress/done/postponed/cancelled/overdue"),
@@ -87,7 +88,6 @@ action_plans = Table(
     Column("goal", Text, comment="总体目标(需求理解)"),
     Column("summary", Text, comment="方案说明"),
     Column("status", String(16), default="active", comment="draft/active/completed/superseded"),
-    Column("replan_of_id", ForeignKey("action_plans.id"), comment="由哪个旧方案重规划而来"),
     *ts_columns(),
     Index("ix_action_plans_user", "user_id"),
     comment="行动方案",

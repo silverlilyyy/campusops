@@ -41,13 +41,11 @@ class BaseAgent:
 
     # -- 生命周期钩子：供编排器调用 -----------------------------------------
     def on_start(self, context: AgentRunContext) -> None:
-        """Agent 开始：更新 Redis 状态并登记动作。"""
+        """Agent 开始：更新 Redis 状态。"""
         try:
             context.status_store.set(self.name, "running")
-            repos.agent_run.update_session(context.session, context.agent_session_id,
-                                           current_agent=self.name)
         except Exception:
-            pass  # Redis/DB 异常不影响主流程
+            pass  # Redis 异常不影响主流程
 
     def on_end(self, context: AgentRunContext, ok: bool = True) -> None:
         try:
