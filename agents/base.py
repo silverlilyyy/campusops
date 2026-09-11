@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from openai.types.chat import ChatCompletionMessageParam
+
 from db import repos
 from agents.context import AgentRunContext
 
@@ -66,7 +68,7 @@ class BaseAgent:
 
     # -- LLM 辅助 -------------------------------------------------------------
     def _llm_messages(self, context: AgentRunContext, user_text: str,
-                      system: Optional[str] = None) -> list:
+                      system: Optional[str] = None) -> list[ChatCompletionMessageParam]:
         return [
             {"role": "system", "content": system or self.role},
             {"role": "user", "content": user_text},

@@ -77,8 +77,9 @@ class ManagerAgent(BaseAgent):
                 continue
             if r.get("text"):
                 parts.append(f"【{r.get('display_name', r.get('agent'))}】\n{r['text']}")
-            if r.get("data"):
-                data_bundle[r.get("agent")] = r["data"]
+            agent_name = r.get("agent")
+            if r.get("data") and isinstance(agent_name, str):
+                data_bundle[agent_name] = r["data"]
         fallback = "\n\n".join(parts) or "（各子 Agent 未返回有效内容，请稍后再试。）"
 
         text = self.chat(

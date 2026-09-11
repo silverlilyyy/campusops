@@ -8,19 +8,20 @@
 5. 汇总结果 -> 写回 agent_sessions(status/plan_id，失败写 error) 与对话消息。
 
 约定：
-- 全程使用共享 Session 的事务（get_session 上下文内完成提交）；
+- 编排器落库使用主 Session；并行子 Agent 各自使用独立 Session；
 - 单 Agent 失败不中断整体，其余结果照常汇总。
 """
 from __future__ import annotations
 
 import json
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Optional, cast
 
 from db import repos
 from db.cache import AgentStatusStore
 from db.engine import get_session
 from agents.context import AgentRunContext
+from agents.manager_agent import ManagerAgent
 from agents.registry import registry
 
 #: 各子 Agent 输出若带 items，交由 Schedule 兜底/整理后统一落库。
@@ -29,6 +30,25 @@ PLAN_PROVIDERS = ("schedule", "finance", "academic")
 
 def _agent_status(session_id: int) -> AgentStatusStore:
     return AgentStatusStore(f"session:{session_id}")
+
+
+def _run_subtask(*, agent_name: str, query: str, user_id: int,
+                 conversation_id: Optional[int], agent_session_id: int,
+                 input_text: str, history: List[Dict[str, str]]) -> Dict[str, Any]:
+    """在独立数据库事务中执行一个子 Agent，供线程池调用。"""
+    agent = registry.get(agent_name)
+    with get_session() as worker_session:
+        worker_ctx = AgentRunContext(
+            user_id=user_id, conversation_id=conversation_id,
+            agent_session_id=agent_session_id, session=worker_session,
+            input_text=input_text, history=history)
+        agent.on_start(worker_ctx)
+        try:
+            result = agent.run(worker_ctx, query)
+        except Exception:
+            agent.on_end(worker_ctx, ok=False)
+            raise
+        return result
 
 
 def run_planning(*, user_id: int, input_text: str,
@@ -51,7 +71,9 @@ def run_planning(*, user_id: int, input_text: str,
 
         try:
             # 2. Manager 理解 + 拆解
-            manager = registry.get("manager")
+            # registry.get() returns the common BaseAgent type; this key is
+            # registered by ManagerAgent and provides the coordinator methods.
+            manager = cast(ManagerAgent, registry.get("manager"))
             manager.on_start(ctx)
             act_decompose = repos.agent_run.start_action(
                 session, session_id=run_id, agent_name="manager", action="decompose",
@@ -65,29 +87,54 @@ def run_planning(*, user_id: int, input_text: str,
                                     ensure_ascii=False)[:2000],
                 status="completed" if subtasks else "failed")
 
-            # 3. 依次执行子 Agent（示例为串行；可改成按 need_data 并行）
+            # 3. 并行执行子 Agent。每个 worker 使用独立 Session，避免跨线程共享
+            # SQLAlchemy Session；主线程仍负责统一记录动作和收集结果。
             results: List[Dict[str, Any]] = []
             plan_items: List[Dict[str, Any]] = []
+            work: List[tuple[str, str, int]] = []
             for sub in subtasks:
                 agent_name = sub.get("agent")
+                if not isinstance(agent_name, str):
+                    continue
                 try:
-                    agent = registry.get(agent_name)
+                    registry.get(agent_name)
                 except KeyError:
                     continue
-                agent.on_start(ctx)
                 action_id = repos.agent_run.start_action(
                     session, session_id=run_id, agent_name=agent_name,
                     action="analyze", request=sub.get("query", input_text))
-                result = agent.run(ctx, sub.get("query", input_text))
-                results.append(result)
-                # 收集可落库的计划明细
-                for item in result.get("items") or []:
-                    plan_items.append(item)
-                repos.agent_run.finish_action(
-                    session, action_id,
-                    response=(result.get("text") or "")[:2000],
-                    status="completed" if result.get("ok") else "failed")
-                agent.on_end(ctx, ok=result.get("ok", True))
+                work.append((agent_name, sub.get("query", input_text), action_id))
+
+            futures = []
+            with ThreadPoolExecutor(max_workers=len(work) or 1) as executor:
+                for agent_name, query, _ in work:
+                    futures.append(executor.submit(
+                        _run_subtask,
+                        agent_name=agent_name,
+                        query=query,
+                        user_id=user_id,
+                        conversation_id=conversation_id,
+                        agent_session_id=run_id,
+                        input_text=input_text,
+                        history=history or [],
+                    ))
+
+                for (agent_name, _, action_id), future in zip(work, futures):
+                    try:
+                        result = future.result()
+                    except Exception as exc:  # noqa: BLE001
+                        repos.agent_run.finish_action(
+                            session, action_id, response=str(exc)[:2000],
+                            status="failed")
+                        continue
+                    results.append(result)
+                    # 收集可落库的计划明细
+                    for item in result.get("items") or []:
+                        plan_items.append(item)
+                    repos.agent_run.finish_action(
+                        session, action_id,
+                        response=(result.get("text") or "")[:2000],
+                        status="completed" if result.get("ok") else "failed")
 
             # 4. 落库行动方案（事务内，覆盖旧 active 方案）
             plan = None

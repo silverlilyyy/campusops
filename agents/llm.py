@@ -10,9 +10,10 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from config import settings
 
@@ -35,7 +36,7 @@ class LLMClient:
         """是否已配置 API Key（否则只能走离线降级逻辑）。"""
         return self._client is not None
 
-    def chat(self, messages: List[Dict[str, str]], *,
+    def chat(self, messages: Iterable[ChatCompletionMessageParam], *,
              temperature: float | None = None,
              max_tokens: int | None = None) -> Optional[str]:
         """普通对话补全；无 Key 或出错返回 None。"""
@@ -52,7 +53,7 @@ class LLMClient:
         except Exception:
             return None
 
-    def chat_json(self, messages: List[Dict[str, str]], *,
+    def chat_json(self, messages: Iterable[ChatCompletionMessageParam], *,
                   temperature: float | None = None) -> Optional[Dict[str, Any]]:
         """以 JSON 模式对话；解析失败返回 None。"""
         if not self._client:
@@ -65,7 +66,11 @@ class LLMClient:
                 max_tokens=settings.ai.max_tokens,
                 response_format={"type": "json_object"},
             )
-            return json.loads(resp.choices[0].message.content)
+            content = resp.choices[0].message.content
+            if content is None:
+                return None
+            parsed = json.loads(content)
+            return parsed if isinstance(parsed, dict) else None
         except Exception:
             return None
 
